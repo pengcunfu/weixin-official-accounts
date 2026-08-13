@@ -1,0 +1,130 @@
+# 微信公众号内容分发系统配置文件
+
+# 应用基础配置
+app:
+  secret_key: ''  # 从环境变量 APP_SECRET_KEY 读取（.env）
+  debug: true
+  host: '0.0.0.0'
+  port: 9009
+  domain: ''  # 应用域名，用于生成完整的文件访问URL
+
+# 数据库配置
+database:
+  type: 'sqlite'
+  path: 'instance/wechat.db'    # SQLite数据库文件路径（相对项目根目录，会自动创建目录）
+  track_modifications: false
+  # 如需切换回MySQL，将 type 改为 'mysql' 并填写以下配置
+  # host: '127.0.0.1'
+  # port: 3306
+  # username: 'root'
+  # password: '123456'
+  # database: 'wechat_db'
+  # charset: 'utf8mb4'
+  # 连接池配置
+  # pool_size: 10
+  # pool_recycle: 3600
+  # pool_pre_ping: true
+  # pool_timeout: 30
+  # max_overflow: 20
+  # connect_args:
+  #   connect_timeout: 60
+  #   read_timeout: 30
+  #   write_timeout: 30
+  #   charset: 'utf8mb4'
+  #   autocommit: true
+
+# 文件上传配置
+upload:
+  max_content_length: 16777216  # 16MB in bytes
+  allowed_extensions:
+    - 'docx'
+  allowed_image_extensions:
+    - 'png'
+    - 'jpg'
+    - 'jpeg'
+    - 'gif'
+  folders:
+    images: 'uploads/images'
+    docx: 'uploads/docx'
+    cover: 'uploads/cover'
+    avatars: 'uploads/avatars'
+
+# 微信配置
+wechat:
+  # 直接授权配置
+  direct:
+    app_id: ''  # 从环境变量 WECHAT_APP_ID 读取（.env）
+    app_secret: ''  # 从环境变量 WECHAT_APP_SECRET 读取（.env）
+  
+  # 第三方平台配置
+  component:
+    component_appid: ''  # 从环境变量 WECHAT_COMPONENT_APP_ID 读取（.env）
+    component_appsecret: ''  # 从环境变量 WECHAT_COMPONENT_APP_SECRET 读取（.env）
+    token: ''  # 从环境变量 WECHAT_COMPONENT_TOKEN 读取（.env）
+    encoding_aes_key: ''  # 从环境变量 WECHAT_COMPONENT_ENCODING_AES_KEY 读取（.env）
+  
+  # 文件路径配置
+  host_image_path: ''
+  docker_image_path: '/mnt/host-downloads'
+
+# JWT配置
+jwt:
+  secret: ''  # 从环境变量 JWT_SECRET 读取（.env）
+  algorithm: 'HS256'
+  expire_hours: 24
+
+# 存储配置（基于SQLite的KV存储，替代Redis）
+storage:
+  # Token存储配置
+  token:
+    prefix: 'auth_token:'
+    expire_seconds: 86400  # 24小时
+  # 验证码存储配置
+  verification_code:
+    prefix: 'verify_code:'
+    expire_seconds: 300  # 5分钟
+    register_expire_seconds: 600  # 注册验证码过期时间（10分钟）
+    reset_password_expire_seconds: 600  # 重置密码验证码过期时间（10分钟）
+    login_expire_seconds: 300  # 登录验证码过期时间（5分钟）
+    max_attempts: 5  # 最大尝试次数
+  # 缓存配置
+  cache:
+    prefix: 'cache:'
+    default_expire_seconds: 3600  # 1小时
+
+# 邮件配置
+mail:
+  server: 'smtp.qq.com'
+  port: 587
+  use_tls: true
+  use_ssl: false
+  username: ''  # 从环境变量 MAIL_USERNAME 读取（.env）
+  password: ''  # 从环境变量 MAIL_PASSWORD 读取（.env）
+  default_sender: '公众号发文助手 <huaqiwill@qq.com>'
+  max_emails: 50
+
+# 登录配置
+login:
+  exempt_endpoints:
+    - 'auth.login'
+    - 'auth.register'
+    - 'auth.forgot_password'
+    - 'auth.send_verification_code'
+
+# 默认管理员账号配置
+admin:
+  username: ''  # 从环境变量 ADMIN_USERNAME 读取（.env）
+  password: ''  # 从环境变量 ADMIN_PASSWORD 读取（.env）
+  email: ''  # 从环境变量 ADMIN_EMAIL 读取（.env）
+  nickname: '系统管理员'
+
+# 日志配置
+logging:
+  level: 'INFO'
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  # 文件日志配置（可选）
+  file:
+    enabled: false  # 设置为true启用文件日志
+    filename: 'logs/app.log'
+    max_bytes: 10485760  # 10MB
+    backup_count: 5

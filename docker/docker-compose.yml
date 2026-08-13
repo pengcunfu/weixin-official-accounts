@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # 后端API服务
+  backend:
+    build:
+      context: ..
+      dockerfile: ../docker/backend.Dockerfile
+    container_name: wechat_backend
+    ports:
+      - "9009:9009"
+    volumes:
+      - /root/data/uploads:/app/static/uploads
+      - /root/data/sqlite:/app/instance
+    restart: unless-stopped
+    networks:
+      - wechat_network
+
+  # 前端Web服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend.Dockerfile
+    container_name: wechat_frontend
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=http://backend:9009/api
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - wechat_network
+
+networks:
+  wechat_network:
+    driver: bridge
