@@ -1,29 +1,78 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g
 from app.decorator.auth import login_required
 from app.utils.json_result import success, error
 from app.utils.system_status import get_system_status as get_real_system_status, get_detailed_system_info, \
     check_system_health
+from app.models.public_account import PublicAccount
+from app.models.article import Article
+from app.models.user import User
 from datetime import datetime, timedelta
-import random
+from sqlalchemy import func
 
 dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/api/dashboard')
+
+ACTIVE_ARTICLE_STATUS = ['已发布', '发布中', '待发布']
+
+
+def _to_rel_time(dt: datetime) -> str:
+    """将时间转换为相对时间描述"""
+    now = datetime.now()
+    delta = now - dt
+    seconds = max(0, int(delta.total_seconds()))
+    if seconds < 60:
+        return '刚刚'
+    minutes = seconds // 60
+    if minutes < 60:
+        return f'{minutes}分钟前'
+    hours = minutes // 60
+    if hours < 24:
+        return f'{hours}小时前'
+    days = hours // 24
+    if days < 30:
+        return f'{days}天前'
+    return dt.strftime('%Y-%m-%d')
+
+
+def _sum_revenue(column) -> float:
+    """安全地求和收益字段（处理 Numeric 与 None）"""
+    result = PublicAccount.query.with_entities(
+        func.coalesce(func.sum(column), 0)).scalar()
+    return float(result or 0)
 
 
 @dashboard_bp.route('/stats', methods=['GET'])
 @login_required
 def get_dashboard_stats():
-    """获取Dashboard主要统计数据"""
+    """获取Dashboard主要统计数据（从数据库真实统计）"""
     try:
-        # 这里后续可以从数据库获取真实数据
+        user = getattr(g, 'user', None)
+
+        account_active = PublicAccount.get_active()
+        user_active = User.get_active()
+        article_active = Article.get_active()
+
+        total_accounts = account_active.count()
+        authorized_accounts = account_active.filter_by(authorized=True).count()
+        child_account_count = user_active.filter_by(is_main=False).count()
+        article_count = article_active.count()
+        published_article_count = article_active.filter(
+            Article.status.in_(ACTIVE_ARTICLE_STATUS)).count()
+
         stats = {
-            'username': 'admin',
-            'isMainAccount': True,
-            'authorizedAccounts': 15,
-            'totalAccounts': 15,
-            'loginCount': 18,
-            'childAccountCount': 0,
-            'accountRevenue': 3439.3,
-            'dailyAccountRevenue': 0.2
+            # 当前登录用户
+            'username': user.username if user else '',
+            'isMainAccount': bool(user.is_main) if user else False,
+            'loginCount': user.login_count if user else 0,
+            # 公众号
+            'authorizedAccounts': authorized_accounts,
+            'totalAccounts': total_accounts,
+            'childAccountCount': child_account_count,
+            # 文章
+            'articleCount': article_count,
+            'publishedArticleCount': published_article_count,
+            # 收益（来自公众号累计/昨日收益）
+            'totalRevenue': _sum_revenue(PublicAccount.total_revenue),
+            'yesterdayRevenue': _sum_revenue(PublicAccount.yesterday_revenue),
         }
         return success(data=stats)
     except Exception as e:
@@ -33,18 +82,13 @@ def get_dashboard_stats():
 @dashboard_bp.route('/revenue-chart', methods=['GET'])
 @login_required
 def get_revenue_chart():
-    """获取总收益图表数据"""
+    """获取总收益分布（各已授权公众号累计收益，真实数据）"""
     try:
+        accounts = PublicAccount.get_active().filter(
+            PublicAccount.authorized == True).all()
         revenue_data = [
-            {'name': '朋友圈主题', 'value': 0},
-            {'name': '朋友圈故事', 'value': 0},
-            {'name': '朋友圈问答', 'value': 0},
-            {'name': '人员简历平台', 'value': 0},
-            {'name': '朋友圈客服', 'value': 0},
-            {'name': '快递管家', 'value': 1800},
-            {'name': '快递之家', 'value': 200},
-            {'name': '朋友圈故事2', 'value': 0},
-            {'name': '朋友圈平台', 'value': 800}
+            {'name': a.nickname or a.account_appID, 'value': float(a.total_revenue or 0)}
+            for a in accounts if (a.total_revenue or 0) > 0
         ]
         return success(data=revenue_data)
     except Exception as e:
@@ -54,82 +98,58 @@ def get_revenue_chart():
 @dashboard_bp.route('/daily-revenue-chart', methods=['GET'])
 @login_required
 def get_daily_revenue_chart():
-    """获取日收益趋势图表数据"""
+    """获取昨日收益对比（各已授权公众号昨日收益，真实数据）"""
     try:
-        # 生成最近7天的数据
-        daily_revenue_data = []
-        base_date = datetime.now() - timedelta(days=6)
-
-        for i in range(7):
-            current_date = base_date + timedelta(days=i)
-            daily_revenue_data.append({
-                'name': current_date.strftime('%Y-%m-%d'),
-                'value': round(random.uniform(0.1, 1.5), 1),
-                'revenue': round(random.uniform(0.1, 1.5), 1)
-            })
-
+        accounts = PublicAccount.get_active().filter(
+            PublicAccount.authorized == True).all()
+        daily_revenue_data = [
+            {'name': a.nickname or a.account_appID,
+             'value': float(a.yesterday_revenue or 0),
+             'revenue': float(a.yesterday_revenue or 0)}
+            for a in accounts if (a.yesterday_revenue or 0) > 0
+        ]
         return success(data=daily_revenue_data)
     except Exception as e:
-        return error(message=f"获取日收益图表数据失败: {str(e)}")
+        return error(message=f"获取昨日收益图表数据失败: {str(e)}")
 
 
 @dashboard_bp.route('/activities', methods=['GET'])
 @login_required
 def get_recent_activities():
-    """获取最近活动数据"""
+    """获取最近活动（基于文章与公众号的真实创建记录）"""
     try:
-        activities = [
-            {
-                'id': '1',
+        activities = []
+
+        # 最近创建的文章
+        articles = Article.get_active().order_by(
+            Article.created_time.desc()).limit(6).all()
+        for a in articles:
+            status_label = '发布' if a.status == '已发布' else '上传'
+            activities.append({
+                'id': f'article-{a.id}',
                 'type': 'article',
-                'title': '发布了新文章《微信小程序开发指南》',
-                'time': '10分钟前',
-                'status': 'success'
-            },
-            {
-                'id': '2',
+                'title': f'{status_label}了文章《{a.title}》',
+                'time': _to_rel_time(a.created_time) if a.created_time else '',
+                'status': 'success' if a.status == '已发布' else 'info',
+                'sort_time': a.created_time.isoformat() if a.created_time else '0000',
+            })
+
+        # 最近创建的公众号
+        accounts = PublicAccount.get_active().order_by(
+            PublicAccount.created_time.desc()).limit(5).all()
+        for acc in accounts:
+            activities.append({
+                'id': f'account-{acc.id}',
                 'type': 'account',
-                'title': '添加了新的公众号《技术分享》',
-                'time': '1小时前',
-                'status': 'info'
-            },
-            {
-                'id': '3',
-                'type': 'revenue',
-                'title': '快递管家账号收益 +1.2元',
-                'time': '2小时前',
-                'status': 'success'
-            },
-            {
-                'id': '4',
-                'type': 'user',
-                'title': '子账号登录系统',
-                'time': '3小时前',
-                'status': 'info'
-            },
-            {
-                'id': '5',
-                'type': 'article',
-                'title': '文章《React最佳实践》发布成功',
-                'time': '4小时前',
-                'status': 'success'
-            },
-            {
-                'id': '6',
-                'type': 'revenue',
-                'title': '朋友圈平台账号收益 +0.8元',
-                'time': '5小时前',
-                'status': 'success'
-            },
-            {
-                'id': '7',
-                'type': 'account',
-                'title': '公众号《生活助手》授权更新',
-                'time': '6小时前',
-                'status': 'warning'
-            }
-        ]
-        return success(data=activities)
+                'title': f"新增公众号《{acc.nickname or acc.account_appID}》",
+                'time': _to_rel_time(acc.created_time) if acc.created_time else '',
+                'status': 'success' if acc.authorized else 'info',
+                'sort_time': acc.created_time.isoformat() if acc.created_time else '0000',
+            })
+
+        # 按真实时间倒序，取前10
+        activities.sort(key=lambda x: x['sort_time'], reverse=True)
+        return success(data=activities[:10])
     except Exception as e:
         return error(message=f"获取最近活动失败: {str(e)}")
 
@@ -173,40 +193,42 @@ def check_system_health_status():
 @dashboard_bp.route('/detailed-stats', methods=['GET'])
 @login_required
 def get_detailed_stats():
-    """获取详细统计数据"""
+    """获取详细统计数据（仅返回可真实计算的项）"""
     try:
+        accounts = PublicAccount.get_active()
+        total_accounts = accounts.count()
+        active_accounts = accounts.filter_by(authorized=True).count()
+
+        # 本周已发布文章数
+        week_start = datetime.now() - timedelta(days=datetime.now().weekday())
+        weekly_published = Article.get_active().filter(
+            Article.status == '已发布',
+            Article.created_time >= week_start
+        ).count()
+        weekly_total = Article.get_active().count()
+
         detailed_stats = {
             'weekly_articles': {
-                'value': 12,
+                'value': weekly_published,
                 'suffix': '篇',
                 'trend': {
-                    'type': 'increase',
-                    'percent': 20,
-                    'text': '比上周增长 20%'
-                }
-            },
-            'monthly_views': {
-                'value': 25680,
-                'suffix': '次',
-                'trend': {
-                    'type': 'increase',
-                    'percent': 15,
-                    'text': '比上月增长 15%'
+                    'type': 'stable',
+                    'text': f'本周发布，共 {weekly_total} 篇文章'
                 }
             },
             'active_accounts': {
-                'value': 8,
+                'value': active_accounts,
                 'suffix': '个',
-                'total': 15,
-                'text': '总共 15 个公众号'
+                'total': total_accounts,
+                'text': f'共 {total_accounts} 个公众号'
             },
             'daily_revenue': {
-                'value': 0.2,
+                'value': _sum_revenue(PublicAccount.yesterday_revenue),
                 'suffix': '元',
-                'precision': 1,
+                'precision': 2,
                 'trend': {
                     'type': 'stable',
-                    'text': '收益稳定增长'
+                    'text': '昨日收益'
                 }
             }
         }

@@ -42,14 +42,16 @@ const { Title, Paragraph, Text } = Typography;
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
-    username: 'admin',
-    isMainAccount: true,
-    authorizedAccounts: 15,
-    totalAccounts: 15,
-    loginCount: 18,
+    username: '',
+    isMainAccount: false,
+    authorizedAccounts: 0,
+    totalAccounts: 0,
+    loginCount: 0,
     childAccountCount: 0,
-    accountRevenue: 3439.3,
-    dailyAccountRevenue: 0.2
+    articleCount: 0,
+    publishedArticleCount: 0,
+    totalRevenue: 0,
+    yesterdayRevenue: 0
   });
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [revenueChartData, setRevenueChartData] = useState<ChartData[]>([]);
@@ -162,7 +164,7 @@ const Dashboard: React.FC = () => {
         <Col span={3}>
           <Card loading={loading} style={{ textAlign: 'center', height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>主账号</div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>{stats.isMainAccount ? '主账号' : '子账号'}</div>
             <div style={{ color: '#666', marginTop: 8 }}>是否主账号</div>
             </div>
           </Card>
@@ -171,7 +173,7 @@ const Dashboard: React.FC = () => {
           <Card loading={loading} style={{ textAlign: 'center', height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div>
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{stats.authorizedAccounts}</div>
-            <div style={{ color: '#666', marginTop: 8 }}>已授权账号(个)</div>
+            <div style={{ color: '#666', marginTop: 8 }}>已授权公众号(个)</div>
             </div>
           </Card>
         </Col>
@@ -179,7 +181,7 @@ const Dashboard: React.FC = () => {
           <Card loading={loading} style={{ textAlign: 'center', height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div>
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{stats.totalAccounts}</div>
-            <div style={{ color: '#666', marginTop: 8 }}>累计账号总数</div>
+            <div style={{ color: '#666', marginTop: 8 }}>公众号总数</div>
             </div>
           </Card>
         </Col>
@@ -195,23 +197,23 @@ const Dashboard: React.FC = () => {
           <Card loading={loading} style={{ textAlign: 'center', height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div>
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#eb2f96' }}>{stats.childAccountCount}</div>
-            <div style={{ color: '#666', marginTop: 8 }}>子账号个数</div>
+            <div style={{ color: '#666', marginTop: 8 }}>子账号数</div>
             </div>
           </Card>
         </Col>
         <Col span={3}>
           <Card loading={loading} style={{ textAlign: 'center', height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div>
-              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#13c2c2' }}>{stats.accountRevenue}</div>
-            <div style={{ color: '#666', marginTop: 8 }}>账号累计总收益</div>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#13c2c2' }}>{stats.articleCount}</div>
+            <div style={{ color: '#666', marginTop: 8 }}>文章总数</div>
             </div>
           </Card>
         </Col>
         <Col span={3}>
           <Card loading={loading} style={{ textAlign: 'center', height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div>
-              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>{stats.dailyAccountRevenue}</div>
-            <div style={{ color: '#666', marginTop: 8 }}>昨日账号累计收益</div>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>{stats.publishedArticleCount}</div>
+            <div style={{ color: '#666', marginTop: 8 }}>已发布文章数</div>
             </div>
           </Card>
         </Col>
@@ -221,7 +223,7 @@ const Dashboard: React.FC = () => {
       <Row gutter={16} style={{ marginBottom: 24 }}>
         {detailedStats ? (
           <>
-            <Col span={6}>
+            <Col span={8}>
               <Card>
                 <Statistic
                   title="本周发布文章"
@@ -237,23 +239,7 @@ const Dashboard: React.FC = () => {
                 </div>
               </Card>
             </Col>
-            <Col span={6}>
-              <Card>
-                <Statistic
-                  title="本月总阅读量"
-                  value={detailedStats.monthly_views.value}
-                  prefix={<EyeOutlined style={{ color: '#52c41a' }} />}
-                  suffix={detailedStats.monthly_views.suffix}
-                  valueStyle={{ color: '#52c41a' }}
-                />
-                <div style={{ marginTop: 8 }}>
-                  <Text type={detailedStats.monthly_views.trend.type === 'increase' ? 'success' : 'secondary'}>
-                    {detailedStats.monthly_views.trend.type === 'increase' ? <RiseOutlined /> : null} {detailedStats.monthly_views.trend.text}
-                  </Text>
-                </div>
-              </Card>
-            </Col>
-            <Col span={6}>
+            <Col span={8}>
               <Card>
                 <Statistic
                   title="活跃公众号"
@@ -269,10 +255,10 @@ const Dashboard: React.FC = () => {
                 </div>
               </Card>
             </Col>
-            <Col span={6}>
+            <Col span={8}>
               <Card>
                 <Statistic
-                  title="今日收益"
+                  title="昨日收益"
                   value={detailedStats.daily_revenue.value}
                   prefix={<DollarOutlined style={{ color: '#eb2f96' }} />}
                   suffix={detailedStats.daily_revenue.suffix}
@@ -280,8 +266,8 @@ const Dashboard: React.FC = () => {
                   valueStyle={{ color: '#eb2f96' }}
                 />
                 <div style={{ marginTop: 8 }}>
-                  <Text type="success">
-                    <RiseOutlined /> {detailedStats.daily_revenue.trend.text}
+                  <Text type="secondary">
+                    {detailedStats.daily_revenue.trend.text}
                   </Text>
                 </div>
               </Card>
@@ -300,7 +286,7 @@ const Dashboard: React.FC = () => {
       <Row gutter={16} style={{ marginBottom: 24 }}>
         {/* 总收益趋势图 */}
         <Col span={12}>
-          <Card title="总收益趋势">
+          <Card title="总收益分布">
             {revenueChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={revenueChartData}>
@@ -327,7 +313,7 @@ const Dashboard: React.FC = () => {
 
         {/* 日收益趋势 */}
         <Col span={12}>
-          <Card title="日收益趋势(多账号的每日累计收入)">
+          <Card title="昨日收益对比">
             {dailyRevenueChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={dailyRevenueChartData}>

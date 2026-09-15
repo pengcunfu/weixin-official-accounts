@@ -8,8 +8,10 @@ export interface DashboardStats {
   totalAccounts: number;
   loginCount: number;
   childAccountCount: number;
-  accountRevenue: number;
-  dailyAccountRevenue: number;
+  articleCount: number;
+  publishedArticleCount: number;
+  totalRevenue: number;
+  yesterdayRevenue: number;
 }
 
 export interface ChartData {
@@ -24,6 +26,7 @@ export interface ActivityItem {
   title: string;
   time: string;
   status: 'success' | 'warning' | 'info';
+  sort_time?: string;
 }
 
 export interface SystemStatus {
@@ -58,11 +61,6 @@ export interface TrendInfo {
 
 export interface DetailedStats {
   weekly_articles: {
-    value: number;
-    suffix: string;
-    trend: TrendInfo;
-  };
-  monthly_views: {
     value: number;
     suffix: string;
     trend: TrendInfo;
