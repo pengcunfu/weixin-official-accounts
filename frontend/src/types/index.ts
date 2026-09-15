@@ -44,6 +44,10 @@ export interface Article {
   public_account_nickname?: string; // 公众号昵称
   public_account_id?: number; // 关联的公众号ID
   saved_status?: '已存稿' | '未存稿' | '存稿中'; // 保存状态
+  draft_media_id?: string; // 草稿箱media_id
+  publish_id?: string; // 发布publish_id
+  publish_url?: string; // 发布后文章链接
+  publish_time?: string; // 发布时间
 }
 
 // 公众号相关类型

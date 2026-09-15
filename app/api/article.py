@@ -10,7 +10,7 @@ from datetime import datetime
 from docx import Document
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from app.extensions.docx_process import docx_process
-from app.extensions.wechat import WeChatDraft
+from app.extensions.wechat import WeChatDraft, WeChatPublish
 from app.utils.validate import validate_form
 from app.utils.model_helper import update_model_fields
 from app.form.article import (
@@ -349,6 +349,66 @@ def save_to_account(article_id: int):
             'message': message
         }
         return success(result, f'存储失败: {message}')
+
+
+@article_bp.route('/<int:article_id>/publish', methods=['POST'])
+@catch_exceptions
+@login_required
+def publish_article(article_id: int):
+    """将已存稿的文章发布到关联的公众号（freepublish）"""
+
+    # 获取文章
+    article = Article.query.get(article_id)
+    if not article:
+        raise ValueError('未找到指定的文章')
+
+    # 检查文章是否关联了公众号
+    if not article.public_account_id:
+        raise ValueError('文章未关联公众号，无法发布')
+
+    # 获取关联的公众号
+    account = PublicAccount.query.filter_by(
+        id=article.public_account_id).first()
+    if not account:
+        raise ValueError('未找到关联的公众号')
+
+    # 检查公众号是否已授权
+    if not account.authorized:
+        raise ValueError('公众号未授权，无法发布')
+
+    # 检查是否已存稿到草稿箱
+    if not article.draft_media_id:
+        raise ValueError('文章尚未存稿到公众号草稿箱，请先执行存稿操作')
+
+    # 获取公众号的微信API凭据
+    app_id = account.account_appID
+    app_secret = account.app_secret
+
+    # 使用公众号的凭据初始化微信发布API
+    api = WeChatPublish(app_id=app_id, app_secret=app_secret)
+
+    try:
+        success_, result = api.publish_to_account(article, account)
+
+        # 提交数据库更改
+        db.session.commit()
+
+        data = {
+            'article_id': article.id,
+            'title': article.title,
+            'status': 'success',
+            'publish_id': result.get('publish_id'),
+            'url': result.get('url'),
+            'message': '发布成功'
+        }
+        return success(data, f'文章已成功发布！链接: {result.get("url")}')
+    except Exception as e:
+        logger.error(
+            f"文章发布失败: ID={article.id}, 标题={article.title}, 错误={str(e)}")
+        db.session.rollback()
+
+        # 标记发布失败状态（不提交中间状态，直接抛出给异常处理）
+        raise ValueError(f'发布失败: {str(e)}')
 
 
 @article_bp.route('/accounts', methods=['GET'])

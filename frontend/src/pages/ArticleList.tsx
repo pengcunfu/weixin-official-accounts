@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Space, Card, message, Modal, Input, Select, Tag } from 'antd';
-import { EditOutlined, DeleteOutlined, UploadOutlined, SearchOutlined, EyeOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, UploadOutlined, SearchOutlined, EyeOutlined, SendOutlined } from '@ant-design/icons';
 import { Article, PaginationParams } from '../types';
 import { articleService } from '../services/articleService';
 import { useNavigate } from 'react-router-dom';
@@ -52,6 +52,25 @@ const ArticleList: React.FC = () => {
 
   const handlePreview = (article: Article) => {
     window.open(`/articles/preview/${article.id}`, '_blank');
+  };
+
+  const handlePublish = async (article: Article) => {
+    if (article.publish_url) {
+      // 已发布过，直接打开文章链接
+      window.open(article.publish_url, '_blank');
+      return;
+    }
+    try {
+      const resp = await articleService.publishArticle(article.id);
+      const data = resp?.data;
+      message.success('发布成功！');
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+      loadArticles();
+    } catch (error) {
+      // 错误已在 api.ts 中统一处理
+    }
   };
 
   const handleDelete = (article: Article) => {
@@ -233,28 +252,37 @@ const ArticleList: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 260,
       fixed: 'right' as const,
       render: (record: Article) => (
         <Space>
-          <Button 
-            size="small" 
+          <Button
+            type="primary"
+            size="small"
+            icon={<SendOutlined />}
+            disabled={record.status === '已发布' || record.saved_status !== '已存稿'}
+            onClick={() => handlePublish(record)}
+          >
+            {record.status === '已发布' ? '已发布' : '发布'}
+          </Button>
+          <Button
+            size="small"
             icon={<EyeOutlined />}
             onClick={() => handlePreview(record)}
           >
             预览
           </Button>
-          <Button 
-            type="primary" 
-            size="small" 
+          <Button
+            type="text"
+            size="small"
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
             编辑
           </Button>
-          <Button 
-            danger 
-            size="small" 
+          <Button
+            danger
+            size="small"
             icon={<DeleteOutlined />}
             onClick={() => handleDelete(record)}
           >

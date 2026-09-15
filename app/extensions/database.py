@@ -100,6 +100,13 @@ class Database:
                 db.create_all()
                 self.logger.info('数据库表创建/验证成功')
 
+                # 已有数据库补充新列（幂等，兼容 SQLite 与 MySQL）
+                self._ensure_missing_columns(Article, {
+                    'publish_id': 'String(40)',
+                    'publish_url': 'String(255)',
+                    'publish_time': 'DateTime',
+                })
+
                 # 初始化迁移
                 if not os.path.exists('migrations'):
                     self.logger.info('正在初始化数据库迁移...')
@@ -143,6 +150,34 @@ class Database:
 
         self._app_initialized = True
         return db
+
+    def _ensure_missing_columns(self, model, columns: dict):
+        """幂等地为已存在的表补充缺失列（避免 create_all 不 alter 已有表）"""
+        from sqlalchemy import inspect, text
+
+        try:
+            inspector = inspect(db.engine)
+            table_name = model.__tablename__
+            existing = {c['name'] for c in inspector.get_columns(table_name)} \
+                if table_name in inspector.get_table_names() else set()
+
+            col_types = {
+                'string': lambda l: f'VARCHAR({l})',
+                'datetime': lambda _: 'DATETIME',
+            }
+
+            for col_name, type_def in columns.items():
+                if col_name in existing:
+                    continue
+                base, args = type_def.split('(')
+                length = int(args.rstrip(')')) if args else None
+                sql_type = col_types[base.lower()](length) if base.lower() == 'string' else col_types[base.lower()](None)
+                with db.engine.begin() as conn:
+                    conn.execute(text(
+                        f'ALTER TABLE {table_name} ADD COLUMN {col_name} {sql_type}'))
+                self.logger.info(f'已为表 {table_name} 补充新列: {col_name} ({sql_type})')
+        except Exception as e:
+            self.logger.warning(f'补充缺失列失败（忽略）: {str(e)}')
 
     def create_default_admin(self):
         """创建默认管理员账号"""

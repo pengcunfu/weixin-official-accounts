@@ -64,9 +64,9 @@ export const articleService = {
 
   // 批量保存文章到微信公众号（已移除，请使用 saveToAccount 单独保存每篇文章）
 
-  // 发布文章
-  publishArticle: (id: number): Promise<ApiResponse<Article>> =>
-    api.put(`/article/${id}`, { status: '已发布' }),
+  // 发布文章（freepublish 发布为公众号图文页）
+  publishArticle: (id: number): Promise<ApiResponse<any>> =>
+    api.post(`/article/${id}/publish`),
 
   // 获取文章预览
   getArticlePreview: (id: number): Promise<ApiResponse<any>> =>

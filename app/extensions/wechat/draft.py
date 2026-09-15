@@ -139,7 +139,7 @@ class WeChatDraft(WeChatBase):
 
         # 发布到草稿箱
         result = self._make_authenticated_request(
-            'POST', '/cgi-bin/draft.py/add', data=article_data)
+            'POST', '/cgi-bin/draft/add', data=article_data)
 
         if 'media_id' in result:
             print(f"文章成功发布到草稿箱，media_id: {result['media_id']}")

@@ -68,9 +68,19 @@ const ArticleEdit: React.FC = () => {
   };
 
   const handlePublish = async () => {
+    if (article?.saved_status !== '已存稿' && article?.saved_status !== '存稿中') {
+      message.warning('请先点击「存到公众号草稿箱」，存稿成功后再发布');
+      return;
+    }
     try {
-      await articleService.publishArticle(Number(id));
-      message.success('发布成功');
+      const resp = await articleService.publishArticle(Number(id));
+      const data = resp?.data;
+      if (data?.url) {
+        message.success('发布成功！可在下方点击文章链接查看');
+        window.open(data.url, '_blank');
+      } else {
+        message.success('发布成功');
+      }
       loadArticle();
     } catch (error) {
       // 错误已在 api.ts 中统一处理
@@ -346,13 +356,22 @@ const ArticleEdit: React.FC = () => {
             {/* 快捷操作 */}
             <Card title="快捷操作" size="small">
               <Space direction="vertical" style={{ width: '100%' }}>
-                <Button 
+                <Button
                   block
                   onClick={handlePublish}
                   disabled={article.status === '已发布'}
                 >
                   {article.status === '已发布' ? '已发布' : '发布文章'}
                 </Button>
+                {article.publish_url && (
+                  <Button
+                    block
+                    type="link"
+                    onClick={() => window.open(article.publish_url, '_blank')}
+                  >
+                    查看已发布文章链接
+                  </Button>
+                )}
                 <Button 
                   block
                   type="dashed"

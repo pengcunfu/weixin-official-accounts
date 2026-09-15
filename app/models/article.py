@@ -30,6 +30,9 @@ class Article(BaseModel):
         'public_account.id', name='fk_article_public_account'), comment='关联公众号ID')
     draft_media_id = db.Column(db.String(100), comment='草稿箱media_id')
     saved_time = db.Column(db.DateTime, comment='存稿时间')
+    publish_id = db.Column(db.String(40), comment='发布publish_id')
+    publish_url = db.Column(db.String(255), comment='发布后文章链接')
+    publish_time = db.Column(db.DateTime, comment='发布时间')
     content_html = db.Column(db.Text, comment='HTML格式内容')
     images_info = db.Column(db.Text, comment='图片信息JSON')
 
@@ -124,6 +127,9 @@ class Article(BaseModel):
             'word_count': self.word_count,
             'draft_media_id': self.draft_media_id,
             'saved_time': self._format_datetime(self.saved_time),
+            'publish_id': self.publish_id,
+            'publish_url': self.publish_url,
+            'publish_time': self._format_datetime(self.publish_time),
             'content_html': self._process_content_html(),
             'images_info': self._process_images_info()
         }
