@@ -291,27 +291,11 @@ const AppLayout: React.FC = () => {
                 transition: 'opacity 0.3s ease 0.1s',
                 opacity: collapsed ? 0 : 1
               }}>
-                <div style={{ 
+                <div style={{
                   marginBottom: 4,
                   transition: 'transform 0.3s ease'
                 }}>
                   © 2025 公众号发文助手
-                </div>
-                <div style={{
-                  transition: 'transform 0.3s ease 0.1s'
-                }}>
-                  <a 
-                    href="https://beian.miit.gov.cn" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={{ 
-                      color: 'rgba(255, 255, 255, 0.65)', 
-                      textDecoration: 'none',
-                      transition: 'color 0.3s ease'
-                    }}
-                  >
-                    京ICP备12345678号
-                  </a>
                 </div>
               </div>
             )}
